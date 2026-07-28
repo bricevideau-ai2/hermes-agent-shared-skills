@@ -132,9 +132,18 @@ editorial states, and the second promote silently clobbers the first. Instead:
    `beam.py:8056` reference rots. Give `grep -n "<symbol>" $(python3 -c "import mod; print(mod.__file__)")`.
 6. **Commit merged candidates to `_merge-staging/merged/` for review** by the other agent against a
    no-content-loss bar.
-7. **Only after a merged version is committed at the repo ROOT and read-verified from shared by BOTH
-   agents** does anyone `skill_manage delete` their local. Order: promote → both verify load from
-   shared (GATE 2 probe) → then delete locals.
+7. **Tear down the staging tree BEFORE deleting any local** (`git rm -r _merge-staging`, content is
+   preserved in git history). The staging copies live under `external_dirs` and ARE scanned as live
+   skills — they only *appear* invisible because local precedence shadows them by name. The moment you
+   delete the locals, those `_merge-staging/{agent,merged}/<name>` copies surface as **duplicate,
+   ambiguous-name skills alongside the promoted root copy**, which can make the skill unloadable. So the
+   staging dir MUST be removed (or scanner-excluded) before locals come out. (Hit live during the first
+   real merge; caught by the mv-aside GATE 2 probe finding 3 copies of each name.)
+8. **Only after a merged version is committed at the repo ROOT, the staging tree is torn down, and the
+   root copy is read-verified from shared by BOTH agents** does anyone `skill_manage delete` their
+   local. Order: promote to root → `git rm -r _merge-staging` → both mv-aside + GATE 2 probe the ROOT
+   copy (skill_dir=shared, marker returned, exactly ONE copy) → then delete locals → final no-stash
+   GATE 2 to confirm the true end-state loads from shared.
 
 ## Maintainer / ownership note
 One agent owns the shared repo as maintainer (curation: what gets generalized+promoted, collision
@@ -151,3 +160,10 @@ merged supersets; the contributor supplies inputs and reviews.
 - Keeping both sides of a factual contradiction in a "superset" → landmine; resolve against source.
 - Hardcoding home/uid/model in a shared skill → breaks on the other box; generalize.
 - Citing `file:line` → rots across releases; cite symbol + grep recipe.
+- Leaving `_merge-staging/` in place when you delete locals → the staged copies (invisible only because
+  local precedence masked them) surface as ambiguous-name duplicates and can make the skill unloadable.
+  `git rm -r _merge-staging` BEFORE removing locals.
+- Tool-authored shared files land 0600 (gateway umask) → the other agent can't read them; GATE 3
+  explicit chmod 0664 + prove with `sudo -u <other-uid> test -r`. Passive umask/ACL fixes DON'T work.
+- Running a tree-wide chmod/ACL pass while the other agent has staged/uncommitted work in the shared
+  tree → you can disturb their in-flight commit/probe. `git status` for another writer's changes first.
