@@ -72,6 +72,32 @@ template into `~/.hermes/skills/memory/` — the venv template is package data, 
 the local copy IS the skill; deleting it leaves no fallback. Proven by the mv-aside probe (skill_view
 → not found), then restored.
 
+## GATE 3 (before the other agent can review/load): fix group-read perms explicitly
+Files authored through the Hermes **tool layer** (write_file, skill_manage) are created by the gateway
+process with a restrictive umask (0077) → mode `0600`, owner-only. The other agent's uid then CANNOT
+filesystem-read them, so their loader/GATE-2 probe fails (they can still `git show` the committed blob,
+but not load it). Your interactive shell umask (0002) does NOT apply — the gateway created the file.
+
+What does NOT fix this (verified on ext4, piment 2026-07-28):
+- A shell `umask 0002` — irrelevant; the gateway process, not your shell, writes the file.
+- A **default ACL** (`setfacl -d -m g:agent-shared:rw`) — the ACL entry is present but shows
+  `#effective:---`, because the file's 0600 mode sets the ACL **mask** to `---`, clamping the group
+  entry to nothing. Passive inheritance can't beat a restrictive creation mode. (Don't leave a dead
+  ACL in place implying a guarantee it can't keep — remove it with `setfacl -b`.)
+
+The reliable fix is an EXPLICIT chmod step at promotion/hand-off time:
+```bash
+find <your-staged-paths> -type f -user "$(whoami)" -exec chmod 0664 {} \;
+find <your-staged-paths> -type d -user "$(whoami)" -exec chmod 0775 {} \;
+```
+Then PROVE the other agent can read them from THEIR uid, not your own:
+```bash
+sudo -u <other-agent-uid> test -r <file> && echo READABLE || echo BLOCKED
+find . -path ./.git -prune -o -type f ! -perm -g+r -print   # expect empty
+```
+Note: git tracks only the execute bit, so this chmod won't show in a commit — it's a live-fs fix that
+must be re-applied whenever you author shared files via tools.
+
 ## The dedup-race rule (two agents, one shared DB/repo)
 When both agents notice the same duplicate and both reach to clean it, you can double-delete to ZERO.
 Convention: **one agent mutates, the other confirms the read.** For a dedup: agent A deletes the
