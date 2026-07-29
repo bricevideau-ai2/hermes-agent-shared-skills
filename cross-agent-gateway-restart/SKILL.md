@@ -104,6 +104,51 @@ If `/run/user/$TUID` does NOT exist, the issuer's user manager isn't running —
 enable linger first (`sudo loginctl enable-linger "$TUSER"`), then the runtime
 dir appears; see `hermes-gateway-daemon-setup` Step 1.
 
+#### Escalation ladder — a plain `restart` is USUALLY enough, but not always
+The `systemctl --user restart` above fixes the common case. If Step 3
+verification shows it did NOT come back (unit stuck `activating`/`failed`, or
+still wedged), escalate one rung at a time — least disruptive first. **Every rung
+below has been verified reachable cross-uid on piment.** All use the same
+`sudo -u "$TUSER" env $RUN ...` prefix (or `sudo systemctl ...` for the
+system-level rungs). Re-run Step 3 after each rung; stop as soon as it's healthy.
+
+1. **Restart** (default): `systemctl --user restart hermes-gateway.service`.
+2. **Clear failed state, then start.** If the unit is in `failed` (crash-loop hit
+   the start-limit), a plain restart is refused until you clear it:
+   ```bash
+   sudo -u "$TUSER" env $RUN systemctl --user reset-failed hermes-gateway.service
+   sudo -u "$TUSER" env $RUN systemctl --user start hermes-gateway.service
+   ```
+3. **Hard stop → confirm dead → start.** If the process is wedged and `restart`
+   can't cleanly tear it down, force it. Confirm no PID survives before starting,
+   or you get a double-start:
+   ```bash
+   sudo -u "$TUSER" env $RUN systemctl --user stop hermes-gateway.service
+   sleep 2
+   PID=$(sudo -u "$TUSER" env $RUN systemctl --user show hermes-gateway.service -p MainPID --value)
+   [ "$PID" = 0 ] && echo "stopped" || sudo kill -9 "$PID"   # only if it refused to die
+   sudo -u "$TUSER" env $RUN systemctl --user start hermes-gateway.service
+   ```
+4. **Restart the whole USER MANAGER** (system-level lever). Use when the user
+   systemd instance itself is sick (bus errors, `daemon-reload` fails, unit won't
+   load). This bounces **every** service that user runs, not just the gateway —
+   heavier, so don't reach for it first:
+   ```bash
+   sudo systemctl restart user@"$TUID".service
+   # then re-run the --user restart in rung 1 (services under it come back with the manager)
+   ```
+5. **Terminate the user session/manager entirely** (heaviest). Only if the user
+   manager is so wedged that restarting `user@<uid>.service` doesn't clear it.
+   This kills the lingering user instance; linger brings it back:
+   ```bash
+   sudo loginctl terminate-user "$TUSER"     # or: terminate-session <id> for a specific session
+   sudo test -d /run/user/"$TUID" || sudo loginctl enable-linger "$TUSER"   # ensure it respawns
+   # wait for /run/user/$TUID + the bus to reappear, then rung 1 restart
+   ```
+   Reserve rungs 4–5 for the manager being broken, not the service. If only the
+   gateway is wedged, rungs 1–3 are the right tool; taking down the whole user
+   manager to fix one service is collateral damage.
+
 ### Step 3 (Restarter) — VERIFY it actually came back (don't trust `active`)
 `active (running)` is NOT proof. A wedged PID sits `active` for hours with the
 Discord loop frozen and the bot OFFLINE. Verify against the FILE log (the
@@ -158,6 +203,12 @@ note) before the wedge, reload it now.
   directly.
 - **`active (running)` ≠ healthy.** Verify the fresh Discord handshake in the FILE
   log + rising CPU ticks before reporting success.
+- **A plain `--user restart` is usually enough — but escalate if it doesn't take.**
+  Rung 2 `reset-failed`+start (crash-loop hit start-limit), rung 3 hard stop→kill→
+  start (wedged process), rung 4 `systemctl restart user@<uid>.service` (user
+  manager sick), rung 5 `loginctl terminate-user` (manager unrecoverable). Rungs
+  4–5 bounce ALL of that user's services — collateral damage; use only when the
+  MANAGER, not just the gateway, is broken.
 - **Resume in the SAME thread.** The restarter pings the issuer in the original
   thread; never spin up a parallel thread. Ask the human for the thread id if you
   can't discover it.
