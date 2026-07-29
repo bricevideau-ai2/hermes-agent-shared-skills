@@ -1,0 +1,10 @@
+Exported environment variables and restarted the gateway.
+
+```bash
+export XDG_RUNTIME_DIR=/run/user/1002
+export DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1002/bus
+systemctl --user daemon-reload
+systemctl --user restart hermes-gateway.service
+```
+
+This snippet captures the exact commands needed to reload and restart the Hermes gateway after modifying `MNEMOSYNE_CROSS_SESSION` or other configuration changes. It was derived from the session where the user prompted for a reliable restart method.

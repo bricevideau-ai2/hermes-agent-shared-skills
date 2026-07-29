@@ -116,6 +116,18 @@ sudo -u "$TUSER" env $RUN systemctl --user is-active hermes-gateway.service
 sudo -u "$TUSER" env $RUN systemctl --user restart hermes-gateway.service
 ```
 
+> **Correctness caveat — a `--user restart` (rungs 1–3) does NOT refresh
+> supplementary group membership.** The `systemd --user` MANAGER caches its
+> supplementary group set at manager spawn and passes that set to every child it
+> starts; `daemon-reexec` preserves the stale set too. So if the reason for the
+> restart is a group change (e.g. the issuer was just `usermod -aG`'d into a new
+> group and the gateway needs it — verified on piment 2026-07-28), a plain
+> service restart will silently come back WITHOUT the new group. Only cycling the
+> whole user manager refreshes it: **rung 4 (`systemctl restart
+> user@<uid>.service`) or rung 5 (`loginctl terminate-user` + linger respawn)**
+> from the escalation ladder below. If the restart is to pick up a new group,
+> skip straight to rung 4 — rungs 1–3 cannot deliver it.
+
 If `/run/user/$TUID` does NOT exist, the issuer's user manager isn't running —
 enable linger first (`sudo loginctl enable-linger "$TUSER"`), then the runtime
 dir appears; see `hermes-gateway-daemon-setup` Step 1.
@@ -123,10 +135,14 @@ dir appears; see `hermes-gateway-daemon-setup` Step 1.
 #### Escalation ladder — a plain `restart` is USUALLY enough, but not always
 The `systemctl --user restart` above fixes the common case. If Step 3
 verification shows it did NOT come back (unit stuck `activating`/`failed`, or
-still wedged), escalate one rung at a time — least disruptive first. **Every rung
-below has been verified reachable cross-uid on piment.** All use the same
-`sudo -u "$TUSER" env $RUN ...` prefix (or `sudo systemctl ...` for the
-system-level rungs). Re-run Step 3 after each rung; stop as soon as it's healthy.
+still wedged), escalate one rung at a time — least disruptive first. **Rungs 1–3 have been
+recovery-tested cross-uid on piment (actually run against a stuck service and
+confirmed to bring it back); rungs 4–5 are form-verified only — the commands and
+cross-uid invocation are correct, but deliberately wedging a live user manager to
+prove the recovery has not been done, because that's a real blast-radius action
+on a running agent.** All use the same `sudo -u "$TUSER" env $RUN ...` prefix (or
+`sudo systemctl ...` for the system-level rungs). Re-run Step 3 after each rung;
+stop as soon as it's healthy.
 
 1. **Restart** (default): `systemctl --user restart hermes-gateway.service`.
 2. **Clear failed state, then start.** If the unit is in `failed` (crash-loop hit
@@ -153,6 +169,14 @@ system-level rungs). Re-run Step 3 after each rung; stop as soon as it's healthy
    sudo systemctl restart user@"$TUID".service
    # then re-run the --user restart in rung 1 (services under it come back with the manager)
    ```
+   > **Guard note (verified against source, not inferred):** this rung does NOT
+   > self-trip the gateway-lifecycle guard, so it needs no reordering. The guard's
+   > matcher (`cron/lifecycle_guard.py::contains_gateway_lifecycle_command`, one
+   > regex) only fires on strings carrying the literal `hermes[.\-]?gateway`
+   > token. `systemctl restart user@<uid>.service` never contains it → no match.
+   > (Rung 5's `loginctl terminate-user` matches no branch at all.) So the ladder
+   > order stands on operational grounds — least-disruptive-first — with no
+   > guard-evasion reordering needed.
 5. **Terminate the user session/manager entirely** (heaviest). Only if the user
    manager is so wedged that restarting `user@<uid>.service` doesn't clear it.
    This kills the lingering user instance; linger brings it back:
@@ -228,7 +252,12 @@ note) before the wedge, reload it now.
   start (wedged process), rung 4 `systemctl restart user@<uid>.service` (user
   manager sick), rung 5 `loginctl terminate-user` (manager unrecoverable). Rungs
   4–5 bounce ALL of that user's services — collateral damage; use only when the
-  MANAGER, not just the gateway, is broken.
+  MANAGER, not just the gateway, is broken. Rungs 1–3 are recovery-tested on
+  piment; rungs 4–5 are form-verified only (not recovery-tested).
+- **A `--user restart` won't refresh supplementary GROUPS.** If the restart is to
+  pick up a new group (post-`usermod -aG`), rungs 1–3 silently come back without
+  it — the `systemd --user` manager caches groups at spawn. Go straight to rung 4
+  (`user@<uid>.service`) or rung 5 (`terminate-user`) to refresh the group set.
 - **Resume in the SAME thread.** The restarter pings the issuer in the original
   thread; never spin up a parallel thread. Ask the human for the thread id if you
   can't discover it.

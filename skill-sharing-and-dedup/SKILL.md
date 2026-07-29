@@ -60,6 +60,7 @@ LOCAL=~/.hermes/skills/<cat>/<name>
 mv "$LOCAL" /tmp/<name>.aside          # reversible; NOT a delete
 # (optionally inject a unique marker into the copy you EXPECT to load, so the read is decisive)
 ```
+**The aside destination MUST be OUTSIDE the scanned skills tree (e.g. `/tmp`, `~/skill-shadow-holding/`) — NOT a renamed sibling dir inside it.** The loader keys on the skill's frontmatter `name:`, not on its directory name, and it walks the *whole* tree. So `mv <name> <name>.SHADOW-ASIDE` in the same parent does NOT break the collision — the loader still finds the `name:`-matching `SKILL.md` inside the renamed dir and the bare name stays ambiguous/unloadable. (Hit live during the `gateway-restart-procedure` promotion: renaming to `.SHADOW-ASIDE` in-tree still returned "Ambiguous skill name … 2 skills match"; only moving the shadow fully out of `~/.hermes/skills/` cleared it.)
 Then ask your loader for it: `skill_view(name="<name>")`.
 - Returns the skill (ideally with your marker, and `skill_dir` = the path you expect) → the
   replacement loads. Safe to proceed.
@@ -163,6 +164,9 @@ merged supersets; the contributor supplies inputs and reviews.
 - Leaving `_merge-staging/` in place when you delete locals → the staged copies (invisible only because
   local precedence masked them) surface as ambiguous-name duplicates and can make the skill unloadable.
   `git rm -r _merge-staging` BEFORE removing locals.
+- mv-aside'ing a shadow to a renamed dir INSIDE the scanned tree → still collides. The loader keys on
+  frontmatter `name:`, not dir name, and walks the whole tree; the aside must leave `~/.hermes/skills/`
+  entirely (`/tmp`, a holding dir). Verified live on the `gateway-restart-procedure` promotion.
 - Tool-authored shared files land 0600 (gateway umask) → the other agent can't read them; GATE 3
   explicit chmod 0664 + prove with `sudo -u <other-uid> test -r`. Passive umask/ACL fixes DON'T work.
 - Running a tree-wide chmod/ACL pass while the other agent has staged/uncommitted work in the shared
