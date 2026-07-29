@@ -77,6 +77,22 @@ Example message body:
 If you genuinely cannot send (already dead), this is the one case where a human
 must intervene — but try to send FIRST.
 
+#### No peer agent available → forward the request to the operator
+If there is no other agent to ask — the peer is offline/wedged too, there's only
+one agent on the host, or your ask goes unanswered — **forward the restart
+request to the human operator** (on piment, Brice) over whatever channel you can
+still reach. Do NOT fall back to restarting yourself; the self-restart paradox
+above still holds. Give the operator the same details a peer would need so they
+can act directly:
+
+- who you are + your uid (`id -u`),
+- that `hermes-gateway.service` needs a restart (and which escalation rung you
+  already tried, if any),
+- the thread id to ping you in once you're back.
+
+The operator is the last resort, not the first: try a peer agent first, fall back
+to the operator only when no agent can do it.
+
 ### Step 2 (Restarter) — Restart the ISSUER's units, not your own
 You act on the issuer's uid and runtime dir. Let `TUID` = the issuer's uid.
 Requires working sudo (`sudo whoami`, never `sudo -n` — see
@@ -196,6 +212,10 @@ note) before the wedge, reload it now.
 - **Ask a peer BEFORE you lose the ability to send.** Send the request the moment
   you decide a restart is needed, with your uid + thread id, so they can finish
   without you.
+- **No peer available → forward to the operator, still never self-restart.** If no
+  other agent can do it (peer down, single-agent host, or no reply), escalate the
+  request to the human operator with your uid + thread id. Operator is the last
+  resort, not the first.
 - **Restarter must target the ISSUER's uid + runtime dir**, not their own:
   `sudo -u <issuer> env XDG_RUNTIME_DIR=/run/user/<TUID> DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/<TUID>/bus systemctl --user restart hermes-gateway.service`.
 - **Don't trust `loginctl show-user` for liveness** — it can say not-lingering
