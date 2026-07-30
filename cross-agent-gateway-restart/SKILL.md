@@ -1,6 +1,6 @@
 ---
 name: cross-agent-gateway-restart
-description: When your OWN Hermes gateway needs restarting, DON'T do it yourself — ask a peer agent to do it. An agent cannot cleanly restart the process that is currently delivering its messages: the restart kills the very session that would report the result, so the agent flails (tries, reasons it's a bad idea, or scripts a fragile self-kill and a human has to step in). This skill encodes the correct protocol — delegate the restart to another agent over Discord, and have the restarter notify the issuer when the gateway is back so a specific thread can be resumed. Load when your gateway is wedged/needs restart, OR when a peer agent asks YOU to restart theirs.
+description: "When your OWN Hermes gateway needs restarting, DON'T do it yourself — ask a peer agent to do it. An agent cannot cleanly restart the process that is currently delivering its messages: the restart kills the very session that would report the result, so the agent flails (tries, reasons it's a bad idea, or scripts a fragile self-kill and a human has to step in). This skill encodes the correct protocol — delegate the restart to another agent over Discord, and have the restarter notify the issuer when the gateway is back so a specific thread can be resumed. Load when your gateway is wedged/needs restart, OR when a peer agent asks YOU to restart theirs."
 category: collaboration
 metadata:
   hermes:
@@ -67,6 +67,10 @@ Send this with the tagged `hermes send` to the peer's channel, then STOP — do 
 also try to restart yourself. (Threading discipline: send the first tagged
 message once; the peer's reply comes back to YOUR gateway as a new turn once it's
 back. Don't compose a second `hermes send` to continue.)
+
+> **`hermes send` gotcha:** the message body is a POSITIONAL argument — there is
+> NO `--message` flag (it errors). e.g. `hermes send --to discord:corwin "text"`.
+> Run `hermes send --help` for the full flag list.
 
 Example message body:
 > Deirdre — my gateway (uid 1002, deirdre-ai) is wedged and needs a restart.
