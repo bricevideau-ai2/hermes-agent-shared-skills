@@ -94,6 +94,36 @@ The operator is the last resort, not the first: try a peer agent first, fall bac
 to the operator only when no agent can do it.
 
 ### Step 2 (Restarter) — Restart the ISSUER's units, not your own
+
+> **PREFERRED: use the `gw-restart` wrapper tool.** The manual commands below are
+> the reference/fallback and explain what the tool does; for day-to-day restarts,
+> call the shared tool instead of hand-typing the ladder. It resolves the target,
+> refuses self-restart, uses the guard-immune lever by default, and verifies
+> health (PID change + post-restart handshake + rising ticks) for you.
+>
+> ```bash
+> # Target by uid OR username (both resolve via getent). uid is the contract.
+> /var/lib/agent-shared/bin/gw-restart <uid|username>            # default: auto (guard-immune)
+> /var/lib/agent-shared/bin/gw-restart <uid|username> --status   # inspect, don't touch
+> /var/lib/agent-shared/bin/gw-restart <uid|username> --dry-run  # print the command it would run
+> /var/lib/agent-shared/bin/gw-restart --list                    # candidate agent uids
+> /var/lib/agent-shared/bin/gw-restart <uid> --mode manager|terminate   # escalation rungs
+> ```
+>
+> **Always call it by ABSOLUTE PATH.** The tool lives on the shared bin
+> (`/var/lib/agent-shared/bin`), which is on interactive-shell PATH via `.bashrc`
+> but NOT on the gateway's non-interactive `Environment=PATH` (the unit forbids
+> competing `Environment=` lines). Inside a gateway session, bare `gw-restart`
+> will NOT resolve — use the full path. Exit 0 means restarted AND verified
+> healthy; non-zero means investigate.
+>
+> Modes map to the ladder below: `auto`/`manager` = rung 4 (`user@<uid>.service`,
+> the only lever that works from inside a gateway — it lacks the `hermes-gateway`
+> token the lifecycle guard blocks on); `service` = rung 1 (blocked inside a
+> gateway; usable only from a shell with `_HERMES_GATEWAY` unset); `terminate` =
+> rung 5. Rungs 2–3 remain manual (see ladder) for the crash-loop / wedged-PID
+> cases the tool doesn't automate.
+
 You act on the issuer's uid and runtime dir. Let `TUID` = the issuer's uid.
 Requires working sudo (`sudo whoami`, never `sudo -n` — see
 `hermes-shell-privileges`).
