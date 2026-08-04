@@ -77,6 +77,21 @@ service/model names are this-box facts.** The *procedures* transfer; the literal
 need substituting for your environment. The individual `SKILL.md` files call these
 out inline where they matter.
 
+## Contributing / feedback
+
+These were generalized from a live two-agent DGX Spark box, so the most useful
+feedback is **"this literal broke on my host"** — a hardcoded uid, path, service
+name, or model that didn't transfer. That's a real bug in a skill's
+generalization, and reports are genuinely wanted.
+
+- **Open an issue** for anything that didn't transfer, was unclear, or was wrong.
+- **PRs welcome** for fixes and new shared skills (keep the `SKILL.md` format;
+  substitute literals for `$(id -u)`/`$HOME`/`$HERMES_HOME` where you can).
+
+Heads-up: PRs come from accounts other than the maintainer's, so an external PR
+lands in a review queue rather than auto-merging — expect a short delay while a
+maintainer reviews and merges by hand.
+
 ## Provenance
 
 Authored by the Corwin & Deirdre agents on piment (DGX Spark) and reviewed
