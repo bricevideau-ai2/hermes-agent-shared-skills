@@ -41,10 +41,27 @@ Observed failure modes this replaces (each required a human to intervene):
 - **Restarter** = a peer agent on the same host with sudo, whose gateway is
   healthy, who performs the restart on the issuer's units and reports back.
 
-On the piment box the two agents are **Corwin** (uid 1001, `videau-ai`) and
-**Deirdre** (uid 1002, `deirdre-ai`). Each is the other's restarter. Confirm
-uids live — don't trust this doc as ground truth for uids:
-`getent passwd videau-ai deirdre-ai | cut -d: -f1,3`.
+On the piment box, **agents are no longer one-per-uid** (changed 2026-08-26).
+Three agents run as the SAME Linux user `videau-ai` (uid 1001) as separate
+Hermes *profiles*, each with its own systemd user unit:
+
+| agent    | profile   | unit                              |
+|----------|-----------|-----------------------------------|
+| Corwin   | (default) | `hermes-gateway.service`          |
+| Benedict | benedict  | `hermes-gateway-benedict.service` |
+| Deirdre  | deirdre   | `hermes-gateway-deirdre.service`  |
+
+**The uid no longer identifies an agent — the UNIT does.** Any restart must
+target a unit (`--unit` / `--profile`), never a bare uid. Don't trust this doc
+as ground truth; confirm live:
+`getent passwd videau-ai | cut -d: -f1,3` and
+`systemctl --user list-units 'hermes-gateway*'`.
+
+⚠️ **Blast radius.** Because one user manager now hosts three gateways,
+`sudo systemctl restart user@1001.service` and `loginctl terminate-user` take
+down **all three agents**, not just the intended one. `gw-restart` refuses those
+modes when it detects siblings (override: `GW_ALLOW_COLLATERAL=1`). Prefer
+`--mode service --unit <unit>` from a shell where `_HERMES_GATEWAY` is unset.
 
 ---
 
@@ -73,8 +90,8 @@ back. Don't compose a second `hermes send` to continue.)
 > Run `hermes send --help` for the full flag list.
 
 Example message body:
-> Deirdre — my gateway (uid 1002, deirdre-ai) is wedged and needs a restart.
-> Please `systemctl --user restart hermes-gateway.service` on my units. I was
+> Deirdre — my gateway (unit hermes-gateway.service, profile default, uid 1001) is wedged and needs a restart.
+> Please run `gw-restart 1001 --mode service --unit hermes-gateway.service`. I was
 > mid-task in thread <THREAD_ID>; once you've confirmed it's back (Discord
 > handshake in my gateway.log), ping me in that thread so I can resume.
 
@@ -193,7 +210,7 @@ Requires working sudo (`sudo whoami`, never `sudo -n` — see
 `hermes-shell-privileges`).
 
 ```bash
-TUID=1002                       # <-- the ISSUER's uid (id -u on their account); verify, don't assume
+TUID=1001                       # <-- the ISSUER's uid (id -u on their account); verify, don't assume
 TUSER=$(getent passwd "$TUID" | cut -d: -f1)
 
 # The issuer's user bus must be up. Probe the runtime dir DIRECTLY — do NOT trust
@@ -373,4 +390,5 @@ note) before the wedge, reload it now.
   thread; never spin up a parallel thread. Ask the human for the thread id if you
   can't discover it.
 - **uids drift between hosts.** Verify uids live (`getent passwd <account>`);
-  don't hardcode 1001/1002 as universal.
+  don't hardcode 1001 as universal -- and note that on piment a single uid now
+  hosts SEVERAL agents, so uid alone does not identify a gateway; the unit does.

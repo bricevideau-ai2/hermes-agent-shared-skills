@@ -1,8 +1,8 @@
 Exported environment variables and restarted the gateway.
 
 ```bash
-export XDG_RUNTIME_DIR=/run/user/1002
-export DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1002/bus
+export XDG_RUNTIME_DIR=/run/user/1001
+export DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1001/bus
 systemctl --user daemon-reload
 systemctl --user restart hermes-gateway.service
 ```

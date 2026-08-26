@@ -17,11 +17,13 @@ trigger: |
 
 Procedure
 ----
-1. Export the runtime environment variables (uid 1002 = deirdre-ai; when
+1. Export the runtime environment variables (uid 1001 = videau-ai, which hosts
+   Corwin/Benedict/Deirdre as separate PROFILES -- pick the right UNIT, not just
+   the uid: hermes-gateway{,-benedict,-deirdre}.service; when
    restarting a PEER's gateway use the TARGET agent's uid, not this literal):
    ```bash
-   export XDG_RUNTIME_DIR=/run/user/1002
-   export DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1002/bus
+   export XDG_RUNTIME_DIR=/run/user/1001
+   export DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1001/bus
    ```
 2. Reload systemd user units:
    ```bash
@@ -46,7 +48,8 @@ Procedure
 
    ```bash
    # authoritative source of truth is the file log, not journalctl
-   tail -25 /home/deirdre-ai/.hermes/logs/gateway.log
+   tail -25 /home/videau-ai/.hermes/profiles/deirdre/logs/gateway.log   # Deirdre
+   # Corwin: /home/videau-ai/.hermes/logs/gateway.log
    ```
 
    Look for the exact READY lines, once per restart:

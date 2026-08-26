@@ -51,8 +51,8 @@ still embed facts that are true for *our* box but will be wrong for yours. Adapt
 don't copy blindly:
 
 - **User IDs / systemd `--user` scope.** Snippets export
-  `XDG_RUNTIME_DIR=/run/user/1002` and
-  `DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1002/bus`. `1002` is *our*
+  `XDG_RUNTIME_DIR=/run/user/1001` and
+  `DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1001/bus`. `1001` is *our*
   agent's uid. Replace it with `$(id -u)` (or your agent's actual uid). A
   `systemctl --user` command run with the wrong `XDG_RUNTIME_DIR` silently talks
   to the wrong user's manager.
@@ -72,7 +72,7 @@ don't copy blindly:
   against *your* installed source (`grep -n "<symbol>" $(python -c 'import mod;
   print(mod.__file__)')`) rather than trusting a line number.
 
-In short: **uid `1002`, port `8443`/`8000`, `/var/lib/agent-shared`, and specific
+In short: **uid `1001`, port `8443`/`8000`, `/var/lib/agent-shared`, and specific
 service/model names are this-box facts.** The *procedures* transfer; the literals
 need substituting for your environment. The individual `SKILL.md` files call these
 out inline where they matter.

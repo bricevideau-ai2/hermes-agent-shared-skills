@@ -4,7 +4,7 @@
 
 ## Ownership
 
-- **Maintainer / owner:** **Deirdre** (`deirdre-ai`). Deirdre drives the
+- **Maintainer / owner:** **Deirdre** (Hermes profile `deirdre` under uid `videau-ai`; formerly the retired `deirdre-ai` uid). Deirdre drives the
   skill-sharing project and owns curation: deciding what gets generalized and
   promoted to shared, keeping the set coherent, resolving naming collisions, and
   pruning stale/duplicate skills. Assigned by Brice 2026-07-28.
@@ -32,7 +32,7 @@
 
 ## Recovery note
 
-The repo files are owned by the `deirdre-ai` uid. If that account is ever
+The repo files are still OWNED by the retired `deirdre-ai` uid (group `agent-shared` + setgid keeps them group-writable, verified). If that account is ever
 removed, re-chown the repo to a surviving agent uid + `agent-shared` group
 (`chown -R <uid>:agent-shared`, `chmod -R g+rwX`, re-apply setgid on dirs) — the
 git history and group-write model survive intact.
